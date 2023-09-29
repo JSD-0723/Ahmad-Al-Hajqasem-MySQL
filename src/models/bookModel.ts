@@ -1,6 +1,6 @@
 import { Sequelize, DataTypes } from 'sequelize';
 import dotenv from 'dotenv';
-
+const bcrypt = require('bcrypt');
 dotenv.config();
 
 const host  = process.env.host;
@@ -9,7 +9,7 @@ const useName = process.env.useNAme||'root';
 const password = process.env.password;
 const databasePort = process.env.databasePort;
 
-function createBookModel() {
+function createModels() {
   const sequelize = new Sequelize({
     password:password,
     database:databaseName,
@@ -34,20 +34,58 @@ function createBookModel() {
       type: DataTypes.STRING,
       defaultValue: 'Null',
     },
+    userId:{
+      type:DataTypes.INTEGER,
+      allowNull:true
+    }
   }, {
     freezeTableName: true,
     timestamps: false,
   });
 
-  Book.sync({ alter: true })
+  const User=sequelize.define('user',{
+    id:{
+      type:DataTypes.INTEGER,
+      unique:true,
+      primaryKey:true,
+      allowNull:false,
+      autoIncrement:true
+    },
+    name:{
+      type:DataTypes.STRING,
+      allowNull:false,
+    }
+    ,
+    password:{
+      type:DataTypes.STRING,
+      allowNull:false,
+      set(password) {
+        // Hash the password before setting it
+        const saltRounds = 10;
+        const hashedPassword = bcrypt.hashSync(password, saltRounds);
+        this.setDataValue('password', hashedPassword);
+      }
+    },
+    },{
+      timestamps:false,
+      freezeTableName:true
+    }
+    )
+
+ User.hasMany(Book)
+ Book.belongsTo(User) 
+
+  sequelize.sync({ alter: true })
     .then(() => {
-      console.log('Table created');
+      console.log('Tables created');
     })
     .catch((error) => {
       console.error(error);
     });
 
-  return Book;
+  return {'book':Book,'user':User};
 }
 
-module.exports = createBookModel;
+
+
+module.exports = createModels;
